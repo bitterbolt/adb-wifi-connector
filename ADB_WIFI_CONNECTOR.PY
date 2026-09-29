@@ -14,8 +14,6 @@ import shlex
 import subprocess
 import sys
 import time
-import tkinter as tk
-from tkinter import filedialog
 from dataclasses import dataclass
 from typing import Iterable, List, Optional
 
@@ -623,6 +621,15 @@ ADB команды:
         return True
 
     def pick_local_file(self, title: str, filetypes: List[tuple]) -> Optional[str]:
+        # tkinter нужен только для GUI-диалога выбора файла и импортируется лениво:
+        # без него весь остальной (консольный) функционал adb работает как обычно.
+        try:
+            import tkinter as tk
+            from tkinter import filedialog
+        except Exception:
+            print("[INFO] tkinter недоступен — укажите путь к файлу вручную.")
+            raw = input(f"{title}\n  Путь к файлу > ").strip().strip('"')
+            return raw or None
         try:
             root = tk.Tk()
             root.withdraw()
