@@ -1,0 +1,3 @@
+# ADB Wi-Fi Connector
+# The core tool relies exclusively on the Python standard library (Python >= 3.8).
+# Optional GUI file picker uses tkinter (included with standard Python installers).
