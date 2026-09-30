@@ -168,7 +168,14 @@ class ADBConnectAndControl:
         return out
 
     def get_devices(self) -> List[DeviceInfo]:
-        res = self.run_adb(["devices", "-l"], capture_output=True)
+        try:
+            res = self.run_adb(["devices", "-l"], capture_output=True)
+        except subprocess.TimeoutExpired:
+            print("[!] 'adb devices' не ответил вовремя (adb завис?) — список пуст.")
+            return []
+        except FileNotFoundError:
+            print(f"[!] adb не найден: {self.adb or 'adb'} (проверьте ADB_PATH / PATH).")
+            return []
         if res.returncode != 0:
             return []
         return self._parse_devices_output(res.stdout or "")
@@ -382,6 +389,8 @@ class ADBConnectAndControl:
                 host = m.group(1)
                 port = m.group(2)
                 targets.append(f"{host}:{port}")
+        except subprocess.TimeoutExpired:
+            print("[!] 'adb mdns services' не ответил вовремя — пропускаю mDNS-поиск.")
         except Exception:
             pass
 
