@@ -8,6 +8,7 @@ ADB Connect & Control for Windows
 
 from __future__ import annotations
 
+import argparse
 import os
 import re
 import shlex
@@ -19,10 +20,12 @@ from typing import Iterable, List, Optional
 
 
 # ===== Конфигурация =====
-# Если путь пустой, будет использован авто-поиск.
+# Значения по умолчанию — пустые (полный авто-поиск). Переопределяются, не трогая
+# код: аргументами CLI (--adb / --ip / --port) или переменными окружения
+# (ADB_PATH / ADB_WIFI_IP / ADB_WIFI_PORT). Приоритет: аргумент > env > константа.
 ADB_PATH = ""
-PREFERRED_WIFI_IP = "192.168.0.103"  # можно оставить пустой строкой "" для полного auto only
-PREFERRED_WIFI_PORT = "32891"
+PREFERRED_WIFI_IP = ""    # пусто = только авто-поиск; напр. "192.168.1.50"
+PREFERRED_WIFI_PORT = ""  # пусто = 5555 по умолчанию
 WINGET_ADB_ID = "Google.PlatformTools"
 
 GLOBAL_ADB_COMMANDS = {
@@ -74,10 +77,20 @@ class DeviceInfo:
 
 
 class ADBConnectAndControl:
-    def __init__(self) -> None:
-        self.adb = (ADB_PATH or "").strip()
-        self.preferred_wifi_ip = (PREFERRED_WIFI_IP or "").strip()
-        self.preferred_wifi_port = (PREFERRED_WIFI_PORT or "5555").strip()
+    def __init__(
+        self,
+        adb_path: Optional[str] = None,
+        preferred_wifi_ip: Optional[str] = None,
+        preferred_wifi_port: Optional[str] = None,
+    ) -> None:
+        # Priority for each setting: explicit argument > environment variable > module constant.
+        adb = adb_path if adb_path is not None else (os.environ.get("ADB_PATH") or ADB_PATH)
+        ip = preferred_wifi_ip if preferred_wifi_ip is not None else (os.environ.get("ADB_WIFI_IP") or PREFERRED_WIFI_IP)
+        port = preferred_wifi_port if preferred_wifi_port is not None else (os.environ.get("ADB_WIFI_PORT") or PREFERRED_WIFI_PORT)
+
+        self.adb = (adb or "").strip()
+        self.preferred_wifi_ip = (ip or "").strip()
+        self.preferred_wifi_port = (port or "").strip() or "5555"
         self.current_device: Optional[DeviceInfo] = None
 
     # ---------- util ----------
@@ -778,7 +791,28 @@ def main() -> int:
         print("[ERR] Требуется Python 3")
         return 1
 
-    app = ADBConnectAndControl()
+    parser = argparse.ArgumentParser(
+        description="ADB Connect & Control for Windows (Wi-Fi debugging / mDNS / USB fallback)"
+    )
+    parser.add_argument(
+        "--ip", default=None,
+        help="предпочтительный IP для Wi-Fi (иначе $ADB_WIFI_IP; по умолчанию — авто-поиск)",
+    )
+    parser.add_argument(
+        "--port", default=None,
+        help="порт Wi-Fi отладки (иначе $ADB_WIFI_PORT; по умолчанию 5555)",
+    )
+    parser.add_argument(
+        "--adb", default=None,
+        help="путь к adb (иначе $ADB_PATH; по умолчанию — авто-поиск)",
+    )
+    args = parser.parse_args()
+
+    app = ADBConnectAndControl(
+        adb_path=args.adb,
+        preferred_wifi_ip=args.ip,
+        preferred_wifi_port=args.port,
+    )
     app.run()
     return 0
 
