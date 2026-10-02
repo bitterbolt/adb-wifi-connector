@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """
 ADB Connect & Control for Windows
 - Автоподключение (Wi-Fi debugging / mDNS / USB fallback)
@@ -166,6 +166,20 @@ class ADBConnectAndControl:
                 )
             )
         return out
+
+    @staticmethod
+    def _parse_mdns_targets(text: str) -> List[str]:
+        targets: List[str] = []
+        for line in text.splitlines():
+            if "_adb-tls-connect._tcp" not in line and "_adb._tcp" not in line:
+                continue
+            m = re.search(r"([A-Za-z0-9_.-]+):(\d{2,5})", line)
+            if not m:
+                continue
+            host = m.group(1)
+            port = m.group(2)
+            targets.append(f"{host}:{port}")
+        return targets
 
     def get_devices(self) -> List[DeviceInfo]:
         try:
@@ -380,15 +394,7 @@ class ADBConnectAndControl:
         try:
             res = self.run_adb(["mdns", "services"], capture_output=True, timeout=10)
             text = (res.stdout or "") + "\n" + (res.stderr or "")
-            for line in text.splitlines():
-                if "_adb-tls-connect._tcp" not in line and "_adb._tcp" not in line:
-                    continue
-                m = re.search(r"([A-Za-z0-9_.-]+):(\d{2,5})", line)
-                if not m:
-                    continue
-                host = m.group(1)
-                port = m.group(2)
-                targets.append(f"{host}:{port}")
+            targets = self._parse_mdns_targets(text)
         except subprocess.TimeoutExpired:
             print("[!] 'adb mdns services' не ответил вовремя — пропускаю mDNS-поиск.")
         except Exception:
